@@ -1,0 +1,9 @@
+$env:DATABASE_URL = "postgres://postgres:mysecretpassword@127.0.0.1:5432/postgres?sslmode=disable";
+Write-Host "Waiting 10 seconds for the database to initialize..." -ForegroundColor Green;
+Start-Sleep -Seconds 10;
+Write-Host "Starting Go server..." -ForegroundColor Green;
+Set-Location -Path 'c:\Users\Prakhar\Documents\secure_wrapper_project\backend_api';
+go run main.go
+
+
+docker run --name secure-db -e POSTGRES_PASSWORD=mysecretpassword -p 5432:5432 -d postgres
