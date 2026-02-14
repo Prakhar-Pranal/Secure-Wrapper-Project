@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -63,15 +64,18 @@ func (a *App) WrapFile(filePath, password, ip, mac string) string {
 		return "error encrypting file: " + err.Error()
 	}
 
-	log.Println("Registering access rule with the server...")
-	if err := registerRule(password, ip, mac); err != nil {
-		return "error registering rule: " + err.Error()
+	// Generate a unique file ID
+	fileID := generateFileID(filePath)
+
+	log.Println("Registering access rule with the backend server...")
+	if err := registerRuleWithBackend(fileID, password, ip, mac); err != nil {
+		return "error registering rule with backend: " + err.Error()
 	}
-	log.Println("Rule successfully registered!")
+	log.Println("Rule successfully registered with backend!")
 
 	log.Println("Creating embedded data file...")
 	goByteSlice := formatDataAsGoSlice(ciphertext)
-	goFileContent := fmt.Sprintf("package main\n\nvar encryptedData = %s", goByteSlice)
+	goFileContent := fmt.Sprintf("package main\n\nvar encryptedData = %s\nvar fileID = \"%s\"\n", goByteSlice, fileID)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -150,6 +154,42 @@ func registerRule(password, ip, mac string) error {
 	}
 	return nil
 }
+
+// New function to register with backend API
+func registerRuleWithBackend(fileID, password, ip, mac string) error {
+	ruleData := Rule{
+		FileID:   fileID,
+		Password: password,
+		IP:       ip,
+		MAC:      mac,
+	}
+	jsonData, err := json.Marshal(ruleData)
+	if err != nil {
+		return fmt.Errorf("Error creating rule JSON: %v", err)
+	}
+
+	resp, err := http.Post("http://localhost:8080/register", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("Error contacting backend server at http://localhost:8080: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Backend returned non-OK status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// Generate a unique file ID based on file name and timestamp
+func generateFileID(filePath string) string {
+	fileName := filepath.Base(filePath)
+	nameWithoutExt := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+	return fmt.Sprintf("%s-%s", nameWithoutExt, timestamp)
+}
+
 func formatDataAsGoSlice(data []byte) string {
 	var builder strings.Builder
 	builder.WriteString("[]byte{")

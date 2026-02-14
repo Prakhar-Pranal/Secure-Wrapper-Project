@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { Login } from '../../wailsjs/go/main/App';
+  import { login } from '../api';
 
   const dispatch = createEventDispatcher();
 
@@ -13,22 +13,19 @@
     isLoading = true;
     errorMessage = "";
 
-    // Simulate network delay for better UX feel
-    // Remove this in production
-    await new Promise(r => setTimeout(r, 800));
-
     try {
-      // Call Go Backend
-      const token = await Login(email, password);
+      // Call backend API
+      const response = await login(email, password);
       
-      // Check if Go returned a success token (modify based on your Go logic)
-      if (token) {
+      // Check if backend returned success
+      if (response && response.token) {
         dispatch('loginSuccess');
       } else {
         errorMessage = "Invalid credentials";
       }
     } catch (err) {
-      errorMessage = "Connection error. Please check your backend.";
+      console.error('Login error:', err);
+      errorMessage = err.message || "Connection error. Please ensure the backend API is running on port 8080.";
     } finally {
       isLoading = false;
     }

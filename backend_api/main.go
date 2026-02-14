@@ -65,6 +65,50 @@ func main() {
 
 	router := gin.Default()
 
+	// Enable CORS
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	// Health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
+
+	// Authentication endpoint
+	router.POST("/login", func(c *gin.Context) {
+		var loginReq map[string]string
+		if err := c.ShouldBindJSON(&loginReq); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		email, emailOk := loginReq["email"]
+		password, passwordOk := loginReq["password"]
+
+		if !emailOk || !passwordOk {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing email or password"})
+			return
+		}
+
+		// Simple hardcoded auth for now - replace with DB lookup as needed
+		if email == "demo@example.com" && password == "password" {
+			c.JSON(http.StatusOK, gin.H{"status": "authenticated", "token": "valid-jwt-token-123"})
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		}
+	})
+
 	router.POST("/register", func(c *gin.Context) {
 		var newRule Rule
 
